@@ -2,31 +2,36 @@ package server
 
 import (
 	"github.com/golang/glog"
+	//"github.com/ugorji/go/codec"
 	"log"
 	"net"
-	"time"
 )
-
-func ProtoClient(message string) error {
-	time.Sleep(1)
-	serverAddr, _ := net.ResolveUDPAddr("udp", "127.0.0.1:4444")
-	con, _ := net.DialUDP("udp", nil, serverAddr)
-	defer con.Close()
-	_, err := con.Write([]byte(message))
-	return err
-}
 
 const (
 	SERVER_PORT = "4444"
 )
 
-func ServerBind() (sock *net.UDPConn, err error) {
+type Client struct {
+	uid      string
+	address  string
+	messages []RPCMessage
+}
+
+type ServerState struct {
+	status         bool
+	socket         *net.UDPConn
+	currentClients int64
+	clients        []Client
+}
+
+func (s *ServerState) Bind() (err error) {
 	glog.Info("Initialising server listener")
 	addr, err := net.ResolveUDPAddr("udp", ":"+SERVER_PORT)
 	if err != nil {
 		glog.Fatalln("Couldn't resolve local address")
 	}
-	sock, err = net.ListenUDP("udp", addr)
+	s.socket, err = net.ListenUDP("udp", addr)
+
 	if err != nil {
 		glog.Fatalln("Failed to bind")
 	}
@@ -34,16 +39,20 @@ func ServerBind() (sock *net.UDPConn, err error) {
 	return
 }
 
-func ServerListen(sock *net.UDPConn) {
+func (s *ServerState) Listen() {
 	buf := make([]byte, 1024)
 	glog.Infoln("Starting to read")
-	go ProtoClient("testing")
 	for {
-		dsize, _, err := sock.ReadFromUDP(buf)
+		dsize, _, err := s.socket.ReadFromUDP(buf)
 		if err != nil {
 			log.Panic(err)
 		}
-		log.Print(string(buf[:dsize]))
+		go ServerProcessData(buf[:dsize])
 	}
 
+}
+
+// Processes incoming datagrams, unmarshalls and stores for pickup
+func ServerProcessData(data []byte) {
+	log.Print(string(data))
 }
