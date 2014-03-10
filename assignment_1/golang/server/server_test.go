@@ -18,7 +18,7 @@ func ProtoClient(message string) error {
 
 // Test whether server successfully binds to a port
 func TestServerBind(t *testing.T) {
-	server := new(ServerState)
+	server := new(TramServer)
 	ok := server.Bind()
 	defer server.socket.Close()
 
@@ -28,12 +28,36 @@ func TestServerBind(t *testing.T) {
 
 // Test whether server successfully receives a message
 func TestReceiveMessage(t *testing.T) {
-	server := new(ServerState)
+	server := new(TramServer)
 	server.Bind()
 	defer server.socket.Close()
 	go ProtoClient("testing")
-
 	server.Listen()
+}
+
+// Test nextTramStop functionality
+func TestNextTramStop(t *testing.T) {
+	server := new(TramServer)
+
+	// check first tram route
+	a, err := server.RetrieveNextStop(1, 2)
+	assert.Nil(t, err, "Next stop error")
+	assert.Equal(t, 3, a, "Result incorrect")
+
+	// check last tram route result
+	a, err = server.RetrieveNextStop(112, 4)
+	assert.Nil(t, err, "Next stop error")
+	assert.Equal(t, 29, a, "Result incorrect")
+}
+
+// Test updateTramLocation() functionality
+func TestUpdateTramLocation(t *testing.T) {
+	server := new(TramServer)
+	tramID := 1
+	currentStop := 3
+	err := server.UpdateTramLocation(tramID, currentStop)
+	assert.Nil(t, err, "UpdateTramLocation error")
+
 }
 
 // Test server new client registration functionality
