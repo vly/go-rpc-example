@@ -1,11 +1,15 @@
 package server
 
 import (
-	"github.com/golang/glog"
-	//"github.com/ugorji/go/codec"
 	"errors"
+	"github.com/golang/glog"
+	"github.com/ugorji/go/codec"
+	"io"
 	"log"
 	"net"
+	"net/rpc"
+	"reflect"
+	"strconv"
 )
 
 const (
@@ -18,11 +22,16 @@ type TramServer struct {
 	currentClients int64
 	clients        map[int]int
 	ch             chan string
+	fn             *SharedFunctions
 }
 
+type SharedFunctions int
+
+// bind server to local port
 func (s *TramServer) Bind() (err error) {
 	glog.Info("Initialising server listener")
 	s.ch = make(chan string)
+
 	addr, err := net.ResolveUDPAddr("udp", ":"+SERVER_PORT)
 	if err != nil {
 		glog.Fatalln("Couldn't resolve local address")
@@ -36,18 +45,31 @@ func (s *TramServer) Bind() (err error) {
 	return
 }
 
+// Initialise listening for datagrams
 func (s *TramServer) Listen() {
 	buf := make([]byte, 1024)
+	exp := new(SharedFunctions)
+	s.fn = exp
+	rpc.Register(exp)
+	var mh codec.MsgpackHandle
+	mh.MapType = reflect.TypeOf(map[string]interface{}(nil))
+	var (
+		//r io.Reader
+
+		h = &mh // or mh to use msgpack
+	)
 	glog.Infoln("Starting to read")
 	for {
-		dsize, _, err := s.socket.ReadFromUDP(buf)
+		rpcCodec := codec.GoRpc.ServerCodec(s.socket, h)
+		rpc.ServeCodec(rpcCodec)
+		dsize, addr, err := s.socket.ReadFromUDP(buf)
 		if err != nil {
 			log.Panic(err)
 		}
 		go s.ServerProcessData(buf[:dsize])
 		answer := <-s.ch
 		if len(answer) != 0 {
-			log.Println(answer)
+			log.Println("Received: " + answer + " from " + addr.IP.String() + ":" + strconv.Itoa(addr.Port))
 			break
 		}
 	}
@@ -56,10 +78,27 @@ func (s *TramServer) Listen() {
 
 // Processes incoming datagrams, unmarshalls and stores for pickup
 func (s *TramServer) ServerProcessData(data []byte) {
+	var mh codec.MsgpackHandle
+	mh.MapType = reflect.TypeOf(map[string]interface{}(nil))
+	var (
+		r io.Reader
+		// w io.Writer
+		b []byte
+		h = &mh // or mh to use msgpack
+	)
+
+	dec := codec.NewDecoder(r, h)
+	dec = codec.NewDecoderBytes(b, h)
+	err := dec.Decode(data)
+	log.Println(data)
+	if err != nil {
+		log.Println("error decoding " + err.Error())
+	}
 	s.ch <- string(data)
 }
 
-func (s *TramServer) inDatabase(tram int, currentStop int) (stops []int, err error) {
+// check if tram and stop are in database
+func (fn *SharedFunctions) inDatabase(tram int, currentStop int) (stops []int, err error) {
 	ROUTES := map[int][]int{
 		1:   {1, 2, 3, 4, 5},
 		96:  {23, 24, 2, 34, 22},
@@ -75,8 +114,9 @@ func (s *TramServer) inDatabase(tram int, currentStop int) (stops []int, err err
 	return
 }
 
-func (s *TramServer) RetrieveNextStop(tram int, currentStop int) (nextStop int, err error) {
-	stops, err := s.inDatabase(tram, currentStop)
+// retrieve next tram stop
+func (fn *SharedFunctions) RetrieveNextStop(tram int, currentStop int) (nextStop int, err error) {
+	stops, err := fn.inDatabase(tram, currentStop)
 	if err != nil {
 		return
 	}
@@ -93,20 +133,23 @@ func (s *TramServer) RetrieveNextStop(tram int, currentStop int) (nextStop int, 
 	return
 }
 
-func (s *TramServer) UpdateTramLocation(tram int, currentStop int) (err error) {
-	stops, err := s.inDatabase(tram, currentStop)
+// update current tram location
+func (fn *SharedFunctions) UpdateTramLocation(tram int, currentStop int) (err error) {
+	stops, err := fn.inDatabase(tram, currentStop)
 	if err != nil {
 		return
 	}
 	for _, b := range stops {
 		if b == currentStop {
-			if _, ok := s.clients[tram]; ok {
-				s.clients[tram] = currentStop
-				return
-			} else {
-				err = errors.New("Looks like an unregistered client")
-				return
-			}
+			// if _, ok := fn.clients[tram]; ok {
+			// 	//s.clients[tram] = currentStop
+			log.Println("yep")
+			// 	return
+			// } else {
+			// 	err = errors.New("Looks like an unregistered client")
+			// 	return
+			// }
+
 		}
 	}
 	err = errors.New("No such stop found")

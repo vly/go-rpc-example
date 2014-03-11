@@ -1,8 +1,14 @@
 package server
 
 import (
+	"fmt"
 	"github.com/stretchr/testify/assert"
+	"github.com/ugorji/go/codec"
+	"io"
+	"log"
 	"net"
+	"net/rpc"
+	"reflect"
 	"testing"
 	"time"
 )
@@ -12,7 +18,37 @@ func ProtoClient(message string) error {
 	serverAddr, _ := net.ResolveUDPAddr("udp", "127.0.0.1:4444")
 	con, _ := net.DialUDP("udp", nil, serverAddr)
 	defer con.Close()
-	_, err := con.Write([]byte(message))
+	var mh codec.MsgpackHandle
+	mh.MapType = reflect.TypeOf(map[string]interface{}(nil))
+	//mh.AddExt(reflect.TypeOf(time.Time{}), 1, myMsgpackTimeEncodeExtFn, myMsgpackTimeDecodeExtFn)
+	var (
+		//r io.Reader
+		w io.Writer
+		b []byte
+		h = &mh // or mh to use msgpack
+	)
+
+	enc := codec.NewEncoder(w, h)
+	enc = codec.NewEncoderBytes(&b, h)
+
+	data := new(RPCMessage)
+	data.csvData = "This is a test lol"
+	err := enc.Encode(data)
+	if err != nil {
+		log.Println(err.Error())
+	}
+	rpcCodec := codec.GoRpc.ClientCodec(con, h)
+	client := rpc.NewClientWithCodec(rpcCodec)
+
+	var reply int
+	client.Call("TramServer.RetrieveNextStop", data, reply)
+	if err != nil {
+		log.Fatalln("fail")
+	}
+	fmt.Println(message)
+
+	//con.Write([]byte(message))
+
 	return err
 }
 
@@ -35,27 +71,36 @@ func TestReceiveMessage(t *testing.T) {
 	server.Listen()
 }
 
-// Test nextTramStop functionality
-func TestNextTramStop(t *testing.T) {
+// Test inDatabase function
+func TestInDatabase(t *testing.T) {
 	server := new(TramServer)
 
-	// check first tram route
-	a, err := server.RetrieveNextStop(1, 2)
-	assert.Nil(t, err, "Next stop error")
-	assert.Equal(t, 3, a, "Result incorrect")
-
-	// check last tram route result
-	a, err = server.RetrieveNextStop(112, 4)
-	assert.Nil(t, err, "Next stop error")
-	assert.Equal(t, 29, a, "Result incorrect")
+	a, err := server.fn.inDatabase(1, 4)
+	assert.Nil(t, err, "inDatabase returned an error")
+	assert.NotNil(t, a, "inDatabase returned an empty list of stops")
 }
+
+// // Test nextTramStop functionality
+// func TestNextTramStop(t *testing.T) {
+// 	server := new(TramServer)
+
+// 	// check first tram route
+// 	a := server.fn.RetrieveNextStop(1, 2)
+// 	//assert.Nil(t, err, "Next stop error")
+// 	assert.Equal(t, 3, a, "Result incorrect")
+
+// 	// check last tram route result
+// 	//a, err = server.fn.RetrieveNextStop(112, 4)
+// 	//assert.Nil(t, err, "Next stop error")
+// 	assert.Equal(t, 29, a, "Result incorrect")
+// }
 
 // Test updateTramLocation() functionality
 func TestUpdateTramLocation(t *testing.T) {
 	server := new(TramServer)
 	tramID := 1
 	currentStop := 3
-	err := server.UpdateTramLocation(tramID, currentStop)
+	err := server.fn.UpdateTramLocation(tramID, currentStop)
 	assert.Nil(t, err, "UpdateTramLocation error")
 
 }

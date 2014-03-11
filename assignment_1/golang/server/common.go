@@ -16,3 +16,7 @@ type RPCMessage struct {
 	csvData       string
 	status        uint32
 }
+
+func (r *RPCMessage) Marshall() []byte {
+	return []byte("yep")
+}
