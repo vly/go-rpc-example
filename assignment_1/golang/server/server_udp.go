@@ -2,6 +2,7 @@ package server
 
 import (
 	"errors"
+	"fmt"
 	"github.com/golang/glog"
 	"github.com/ugorji/go/codec"
 	"io"
@@ -10,6 +11,7 @@ import (
 	"net/rpc"
 	"reflect"
 	"strconv"
+	"strings"
 )
 
 const (
@@ -18,7 +20,7 @@ const (
 
 type TramServer struct {
 	status         bool
-	socket         *net.UDPConn
+	socket         *net.TCPListener
 	currentClients int64
 	clients        map[int]int
 	ch             chan string
@@ -29,14 +31,14 @@ type SharedFunctions int
 
 // bind server to local port
 func (s *TramServer) Bind() (err error) {
-	glog.Info("Initialising server listener")
+	fmt.Println("Initialising server listener")
 	s.ch = make(chan string)
 
-	addr, err := net.ResolveUDPAddr("udp", ":"+SERVER_PORT)
+	addr, err := net.ResolveTCPAddr("tcp", ":"+SERVER_PORT)
 	if err != nil {
 		glog.Fatalln("Couldn't resolve local address")
 	}
-	s.socket, err = net.ListenUDP("udp", addr)
+	s.socket, err = net.ListenTCP("tcp", addr)
 
 	if err != nil {
 		glog.Fatalln("Failed to bind")
@@ -47,32 +49,29 @@ func (s *TramServer) Bind() (err error) {
 
 // Initialise listening for datagrams
 func (s *TramServer) Listen() {
-	buf := make([]byte, 1024)
+	fmt.Printf("%s\n", "starting to listen")
+	//buf := make([]byte, 1024)
 	exp := new(SharedFunctions)
 	s.fn = exp
 	rpc.Register(exp)
-	var mh codec.MsgpackHandle
-	mh.MapType = reflect.TypeOf(map[string]interface{}(nil))
-	var (
-		//r io.Reader
-
-		h = &mh // or mh to use msgpack
-	)
+	conn, _ := s.socket.Accept()
+	rpc.ServeConn(conn)
 	glog.Infoln("Starting to read")
-	for {
-		rpcCodec := codec.GoRpc.ServerCodec(s.socket, h)
-		rpc.ServeCodec(rpcCodec)
-		dsize, addr, err := s.socket.ReadFromUDP(buf)
-		if err != nil {
-			log.Panic(err)
-		}
-		go s.ServerProcessData(buf[:dsize])
-		answer := <-s.ch
-		if len(answer) != 0 {
-			log.Println("Received: " + answer + " from " + addr.IP.String() + ":" + strconv.Itoa(addr.Port))
-			break
-		}
-	}
+	// for {
+	// 	// rpcCodec := codec.GoRpc.ServerCodec(s.socket, h)
+
+	// 	// rpc.ServeCodec(rpcCodec)
+	// 	dsize, addr, err := s.socket.ReadFromUDP(buf)
+	// 	if err != nil {
+	// 		log.Panic(err)
+	// 	}
+	// 	go s.ServerProcessData(buf[:dsize])
+	// 	answer := <-s.ch
+	// 	if len(answer) != 0 {
+	// 		log.Println("Received: " + answer + " from " + addr.IP.String() + ":" + strconv.Itoa(addr.Port))
+	// 		break
+	// 	}
+	// }
 
 }
 
@@ -115,10 +114,17 @@ func (fn *SharedFunctions) inDatabase(tram int, currentStop int) (stops []int, e
 }
 
 // retrieve next tram stop
-func (fn *SharedFunctions) RetrieveNextStop(tram int, currentStop int) (nextStop int, err error) {
+func (fn *SharedFunctions) RetrieveNextStop(in *RPCMessage, out *RPCMessage) error {
+	data := strings.Split(in.csvData, ",")
+	if len(data) != 2 {
+		return errors.New("not enough params")
+	}
+	tram, _ := strconv.Atoi(data[0])
+	currentStop, _ := strconv.Atoi(data[1])
 	stops, err := fn.inDatabase(tram, currentStop)
+	var nextStop int
 	if err != nil {
-		return
+		return nil
 	}
 	for a, b := range stops {
 		if b == currentStop {
@@ -129,15 +135,18 @@ func (fn *SharedFunctions) RetrieveNextStop(tram int, currentStop int) (nextStop
 			}
 		}
 	}
-
-	return
+	out.csvData = strconv.Itoa(nextStop)
+	return nil
 }
 
 // update current tram location
-func (fn *SharedFunctions) UpdateTramLocation(tram int, currentStop int) (err error) {
+func (fn *SharedFunctions) UpdateTramLocation(in *RPCMessage, out *RPCMessage) error {
+	data := strings.Split(in.csvData, ",")
+	tram, _ := strconv.Atoi(data[0])
+	currentStop, _ := strconv.Atoi(data[1])
 	stops, err := fn.inDatabase(tram, currentStop)
 	if err != nil {
-		return
+		return nil
 	}
 	for _, b := range stops {
 		if b == currentStop {
@@ -152,6 +161,5 @@ func (fn *SharedFunctions) UpdateTramLocation(tram int, currentStop int) (err er
 
 		}
 	}
-	err = errors.New("No such stop found")
-	return
+	return errors.New("No such stop found")
 }

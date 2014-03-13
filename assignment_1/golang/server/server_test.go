@@ -3,53 +3,34 @@ package server
 import (
 	"fmt"
 	"github.com/stretchr/testify/assert"
-	"github.com/ugorji/go/codec"
-	"io"
-	"log"
+	//"github.com/ugorji/go/codec"
+
+	//"log"
 	"net"
 	"net/rpc"
-	"reflect"
+
 	"testing"
 	"time"
 )
 
 func ProtoClient(message string) error {
 	time.Sleep(1)
-	serverAddr, _ := net.ResolveUDPAddr("udp", "127.0.0.1:4444")
-	con, _ := net.DialUDP("udp", nil, serverAddr)
-	defer con.Close()
-	var mh codec.MsgpackHandle
-	mh.MapType = reflect.TypeOf(map[string]interface{}(nil))
-	//mh.AddExt(reflect.TypeOf(time.Time{}), 1, myMsgpackTimeEncodeExtFn, myMsgpackTimeDecodeExtFn)
-	var (
-		//r io.Reader
-		w io.Writer
-		b []byte
-		h = &mh // or mh to use msgpack
-	)
-
-	enc := codec.NewEncoder(w, h)
-	enc = codec.NewEncoderBytes(&b, h)
+	//serverAddr, _ := net.ResolveTCPAddr("tcp", "4444")
+	con, _ := net.Dial("tcp", "127.0.0.1:4444")
+	//defer con.Close()
 
 	data := new(RPCMessage)
-	data.csvData = "This is a test lol"
-	err := enc.Encode(data)
-	if err != nil {
-		log.Println(err.Error())
-	}
-	rpcCodec := codec.GoRpc.ClientCodec(con, h)
-	client := rpc.NewClientWithCodec(rpcCodec)
+	data.csvData = "1,4"
 
+	client := rpc.NewClient(con)
 	var reply int
-	client.Call("TramServer.RetrieveNextStop", data, reply)
-	if err != nil {
-		log.Fatalln("fail")
-	}
-	fmt.Println(message)
+	client.Call("SharedFunctions.RetrieveNextStop", data, &reply)
+
+	fmt.Println(string(reply))
 
 	//con.Write([]byte(message))
 
-	return err
+	return nil
 }
 
 // Test whether server successfully binds to a port
@@ -67,8 +48,8 @@ func TestReceiveMessage(t *testing.T) {
 	server := new(TramServer)
 	server.Bind()
 	defer server.socket.Close()
-	go ProtoClient("testing")
 	server.Listen()
+	go ProtoClient("testing")
 }
 
 // Test inDatabase function
@@ -96,14 +77,14 @@ func TestInDatabase(t *testing.T) {
 // }
 
 // Test updateTramLocation() functionality
-func TestUpdateTramLocation(t *testing.T) {
-	server := new(TramServer)
-	tramID := 1
-	currentStop := 3
-	err := server.fn.UpdateTramLocation(tramID, currentStop)
-	assert.Nil(t, err, "UpdateTramLocation error")
+// func TestUpdateTramLocation(t *testing.T) {
+// 	server := new(TramServer)
+// 	tramID := 1
+// 	currentStop := 3
+// 	err := server.fn.UpdateTramLocation(tramID, currentStop)
+// 	assert.Nil(t, err, "UpdateTramLocation error")
 
-}
+// }
 
 // Test server new client registration functionality
 func TestServerSignin(t *testing.T) {
