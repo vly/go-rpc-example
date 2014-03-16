@@ -2,6 +2,7 @@ package v2
 
 import (
 	"fmt"
+	"github.com/nu7hatch/gouuid"
 	"log"
 	"net/rpc"
 	"strconv"
@@ -10,9 +11,14 @@ import (
 type Client struct {
 	socket   *rpc.Client
 	requests uint32
+	tramID   *uuid.UUID
 }
 
 func (c *Client) Init(serverIP string) (err error) {
+	c.tramID, err = uuid.NewV4()
+	if err != nil {
+		log.Fatalln("Error generating UUID")
+	}
 	client, err := rpc.Dial("tcp", serverIP)
 	if err != nil {
 		log.Fatal("dialing:", err)
@@ -30,7 +36,8 @@ func (c *Client) checkIDs(to *RPCMessage, from *RPCMessage) {
 func (c *Client) GetNextStop(data *Tram) (nextStop int, err error) {
 	// Synchronous call
 	c.requests += 1
-	newMessage := RPCMessage{Request, 1, 3366222, 1, 1, data.ToString(), 1}
+	rpcID, _ := uuid.NewV4()
+	newMessage := RPCMessage{Request, 1, rpcID, 1, 1, data.ToString(), 1}
 
 	var response RPCMessage
 	err = c.socket.Call("Server.GetNextStop", &newMessage, &response)
@@ -46,7 +53,8 @@ func (c *Client) GetNextStop(data *Tram) (nextStop int, err error) {
 
 func (c *Client) UpdateTramLocation(data *Tram) (nextStop int, err error) {
 	c.requests += 1
-	newMessage := RPCMessage{Request, 1, 3366222, c.requests, 1, data.ToString(), 1}
+	rpcID, _ := uuid.NewV4()
+	newMessage := RPCMessage{Request, 1, rpcID, c.requests, 1, data.ToString(), 1}
 
 	var response RPCMessage
 	err = c.socket.Call("Server.UpdateTramLocation", &newMessage, &response)

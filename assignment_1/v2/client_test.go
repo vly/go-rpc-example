@@ -1,7 +1,8 @@
 package v2
 
 import (
-	//	"fmt"
+	// "fmt"
+	"github.com/nu7hatch/gouuid"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -22,14 +23,15 @@ func TestGetNextStop(t *testing.T) {
 
 	// in/out test input for function
 	// consists of tramID, currentstop, previousstop
+	tramID, _ := uuid.NewV4()
 	tests := map[Tram]int{
-		Tram{1, 3, 4}:    2,
-		Tram{1, 3, 2}:    4,
-		Tram{1, 1, 2}:    2,
-		Tram{1, 5, 4}:    4,
-		Tram{101, 34, 4}: 5,
-		Tram{2, 1, 2}:    -1,
-		Tram{1, 99, 2}:   -1,
+		Tram{tramID, 1, 3, 4}:    2,
+		Tram{tramID, 1, 3, 2}:    4,
+		Tram{tramID, 1, 1, 2}:    2,
+		Tram{tramID, 1, 5, 4}:    4,
+		Tram{tramID, 101, 34, 4}: 5,
+		Tram{tramID, 2, 1, 2}:    -1,
+		Tram{tramID, 1, 99, 2}:   -1,
 	}
 
 	// initialise client
@@ -51,11 +53,12 @@ func TestUpdateTramLocation(t *testing.T) {
 	ConnectServer()
 
 	// in/out input for function
+	tramID, _ := uuid.NewV4()
 	tests := map[Tram]int{
-		Tram{2, 1, 2}:    -1,
-		Tram{1, 2, 1}:    0,
-		Tram{1, 3, 2}:    0,
-		Tram{101, 34, 4}: 0,
+		Tram{tramID, 2, 1, 2}:    -1,
+		Tram{tramID, 1, 2, 1}:    0,
+		Tram{tramID, 1, 3, 2}:    0,
+		Tram{tramID, 101, 34, 4}: 0,
 	}
 
 	// initialise client

@@ -13,6 +13,7 @@ import (
 // Main server structure
 type Server struct {
 	Clients list.List
+	Routes  map[int][]string
 	Status  bool
 }
 
@@ -24,6 +25,9 @@ func (t *Server) init() {
 	t.checkError(err)
 	listener, err := net.ListenTCP("tcp", tcpAddr)
 	t.checkError(err)
+
+	// create new map for tracking routes
+	t.Routes = make(map[int][]string)
 
 	rpc.Accept(listener)
 
@@ -45,10 +49,22 @@ func (t *Server) checkError(err error) {
 	}
 }
 
+// Make sure that a tram route doesn't exceed 5 trams
+func (t *Server) addClient(data *Tram) {
+	if _, ok := t.Routes[data.Route]; ok {
+		if len(t.Routes[data.Route]) == MAX_ROUTE_TRAM {
+			return
+		}
+	}
+	t.Routes[data.Route] = append(t.Routes[data.Route], data.TramID.String())
+	t.Clients.PushFront(data)
+
+}
+
 // update Clients list
 func (t *Server) updateClient(data *Tram) {
 	if t.Clients.Len() == 0 {
-		t.Clients.PushFront(data)
+		t.addClient(data)
 		return
 	}
 	// check if tramID already exists, and if it does update the currentStop
@@ -60,7 +76,7 @@ func (t *Server) updateClient(data *Tram) {
 	}
 
 	// otherwise add to front of the list
-	t.Clients.PushFront(data)
+	t.addClient(data)
 }
 
 func (t *Server) getStats() {
@@ -76,7 +92,7 @@ func inDatabase(data *Tram) (stops []int, err error) {
 		109: {88, 87, 85, 80, 9, 7, 2, 1},
 		112: {110, 123, 11, 22, 34, 33, 29, 4},
 	}
-	if values, ok := ROUTES[data.TramID]; ok {
+	if values, ok := ROUTES[data.Route]; ok {
 		stops = values
 	} else {
 		err = errors.New("No such tram route found.")

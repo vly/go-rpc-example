@@ -2,6 +2,7 @@ package v2
 
 import (
 	"fmt"
+	"github.com/nu7hatch/gouuid"
 	"strconv"
 	"strings"
 )
@@ -22,7 +23,7 @@ const (
 type RPCMessage struct {
 	MessageType   MessageType
 	TranslationId uint32
-	RPCId         uint32
+	RPCId         *uuid.UUID
 	RequestID     uint32
 	ProcedureID   uint32
 	CsvData       string
@@ -30,7 +31,8 @@ type RPCMessage struct {
 }
 
 type Tram struct {
-	TramID       int
+	TramID       *uuid.UUID
+	Route        int
 	CurrentStop  int
 	PreviousStop int
 }
@@ -40,15 +42,16 @@ type Quotient struct {
 }
 
 func (curr *Tram) ToString() string {
-	return fmt.Sprintf("%d,%d,%d", curr.TramID, curr.CurrentStop, curr.PreviousStop)
+	return fmt.Sprintf("%s,%d,%d,%d", curr.TramID.String(), curr.Route, curr.CurrentStop, curr.PreviousStop)
 }
 
 func (curr *Tram) FromString(data string) {
 	temp := strings.Split(data, ",")
-	if len(temp) != 3 {
+	if len(temp) != 4 {
 		panic("Oh oh, couldn't unpack")
 	}
-	curr.TramID, _ = strconv.Atoi(temp[0])
-	curr.CurrentStop, _ = strconv.Atoi(temp[1])
-	curr.PreviousStop, _ = strconv.Atoi(temp[2])
+	curr.TramID, _ = uuid.ParseHex(temp[0])
+	curr.Route, _ = strconv.Atoi(temp[1])
+	curr.CurrentStop, _ = strconv.Atoi(temp[2])
+	curr.PreviousStop, _ = strconv.Atoi(temp[3])
 }
