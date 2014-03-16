@@ -8,12 +8,12 @@ import (
 )
 
 type Client struct {
-	socket *rpc.Client
+	socket   *rpc.Client
+	requests uint32
 }
 
-func (c *Client) Init() (err error) {
-	service := "localhost:1234"
-	client, err := rpc.Dial("tcp", service)
+func (c *Client) Init(serverIP string) (err error) {
+	client, err := rpc.Dial("tcp", serverIP)
 	if err != nil {
 		log.Fatal("dialing:", err)
 	}
@@ -21,25 +21,42 @@ func (c *Client) Init() (err error) {
 	return
 }
 
-func (c *Client) GetNextStop(data *CurrentLoc) (nextStop int, err error) {
+func (c *Client) checkIDs(to *RPCMessage, from *RPCMessage) {
+	if to.RequestID != from.RequestID {
+		log.Fatalf("Expected %d but received %d\n", to.RequestID, from.RequestID)
+	}
+}
+
+func (c *Client) GetNextStop(data *Tram) (nextStop int, err error) {
 	// Synchronous call
+	c.requests += 1
 	newMessage := RPCMessage{Request, 1, 3366222, 1, 1, data.ToString(), 1}
 
 	var response RPCMessage
-	err = c.socket.Call("Arith.GetNextStop", &newMessage, &response)
+	err = c.socket.Call("Server.GetNextStop", &newMessage, &response)
 	if err != nil {
-		log.Fatal("arith error:", err)
+		log.Fatal("Server error:", err)
 	}
+	c.checkIDs(&newMessage, &response)
+
 	fmt.Printf("Response: %s\n", response.CsvData)
 	nextStop, err = strconv.Atoi(response.CsvData)
 	return
 }
 
-// 	var quot Quotient
-// 	err = client.Call("Arith.Divide", args, &quot)
+func (c *Client) UpdateTramLocation(data *Tram) (nextStop int, err error) {
+	c.requests += 1
+	newMessage := RPCMessage{Request, 1, 3366222, c.requests, 1, data.ToString(), 1}
 
-// 	if err != nil {
-// 		log.Fatal("arith error:", err)
-// 	}
-// 	fmt.Printf("Arith: %d/%d=%d remainder %d\n", args.TramID, args.CurrentStop, quot.Quo, quot.Rem)
-// }
+	var response RPCMessage
+	err = c.socket.Call("Server.UpdateTramLocation", &newMessage, &response)
+	if err != nil {
+		log.Fatal("Server error:", err)
+	}
+	c.checkIDs(&newMessage, &response)
+	fmt.Printf("Response: %s\n", response.CsvData)
+	if len(response.CsvData) != 0 {
+		nextStop, err = strconv.Atoi(response.CsvData)
+	}
+	return
+}

@@ -6,6 +6,12 @@ import (
 	"strings"
 )
 
+// define system limits
+const (
+	MAX_ROUTE_TRAM  int = 5
+	MIN_ROUTE_STOPS int = 5
+)
+
 type MessageType int
 
 const (
@@ -23,24 +29,26 @@ type RPCMessage struct {
 	Status        uint32
 }
 
-type CurrentLoc struct {
-	TramID      int
-	CurrentStop int
+type Tram struct {
+	TramID       int
+	CurrentStop  int
+	PreviousStop int
 }
 
 type Quotient struct {
 	Quo, Rem int
 }
 
-func (curr *CurrentLoc) ToString() string {
-	return fmt.Sprintf("%d,%d", curr.TramID, curr.CurrentStop)
+func (curr *Tram) ToString() string {
+	return fmt.Sprintf("%d,%d,%d", curr.TramID, curr.CurrentStop, curr.PreviousStop)
 }
 
-func (curr *CurrentLoc) FromString(data string) {
+func (curr *Tram) FromString(data string) {
 	temp := strings.Split(data, ",")
-	if len(temp) != 2 {
+	if len(temp) != 3 {
 		panic("Oh oh, couldn't unpack")
 	}
 	curr.TramID, _ = strconv.Atoi(temp[0])
 	curr.CurrentStop, _ = strconv.Atoi(temp[1])
+	curr.PreviousStop, _ = strconv.Atoi(temp[2])
 }
