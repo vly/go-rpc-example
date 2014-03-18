@@ -18,7 +18,7 @@ type Server struct {
 }
 
 // Initialise Server, registering RPC service and binding to port 1234
-func (t *Server) init() {
+func (t *Server) Init() {
 	t.Status = true
 	rpc.Register(t)
 	tcpAddr, err := net.ResolveTCPAddr("tcp", ":1234")

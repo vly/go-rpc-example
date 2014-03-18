@@ -12,7 +12,7 @@ var server Server
 
 func ConnectServer() {
 	if server.Status != true {
-		go server.init()
+		go server.Init()
 	}
 }
 
