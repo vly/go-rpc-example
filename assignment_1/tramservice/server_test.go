@@ -1,4 +1,4 @@
-package v2
+package tramservice
 
 import (
 	"fmt"
@@ -10,6 +10,7 @@ import (
 func TestRegisterClient(t *testing.T) {
 	fmt.Println("Server testing")
 	assert.NotNil(t, "hi", "Hi is nil!")
+
 }
 
 // Test client status update functionality
