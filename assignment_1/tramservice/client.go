@@ -6,12 +6,20 @@ import (
 	"log"
 	"net/rpc"
 	"strconv"
+	"math/rand"
+	"time"
 )
 
 type Client struct {
 	socket   *rpc.Client
 	requests uint32
 	tramID   *uuid.UUID
+}
+
+func genRand() (out int) {
+	rand.Seed(time.Now().UTC().UnixNano())
+	out = 10 + rand.Intn(10)
+	return
 }
 
 func (c *Client) Init(serverIP string) (err error) {
@@ -55,6 +63,9 @@ func (c *Client) UpdateTramLocation(data *Tram) (nextStop int, err error) {
 	c.requests += 1
 	rpcID, _ := uuid.NewV4()
 	newMessage := RPCMessage{Request, 1, rpcID, c.requests, 1, data.ToString(), 1}
+
+	// sleep before executing
+	time.Sleep(time.Duration(genRand())*time.Second)
 
 	var response RPCMessage
 	err = c.socket.Call("Server.UpdateTramLocation", &newMessage, &response)
