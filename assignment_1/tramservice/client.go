@@ -63,6 +63,7 @@ func (c *Client) UpdateTramLocation(data *Tram) (nextStop int, err error) {
 	c.requests += 1
 	rpcID, _ := uuid.NewV4()
 	newMessage := RPCMessage{Request, 1, rpcID, c.requests, 1, data.ToString(), 1}
+	//newMessage.Marshall()
 
 	// sleep before executing
 	time.Sleep(time.Duration(genRand())*time.Second)

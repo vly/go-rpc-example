@@ -5,6 +5,7 @@ import (
 	"github.com/nu7hatch/gouuid"
 	"strconv"
 	"strings"
+	"reflect"
 )
 
 // define system limits
@@ -54,4 +55,30 @@ func (curr *Tram) FromString(data string) {
 	curr.Route, _ = strconv.Atoi(temp[1])
 	curr.CurrentStop, _ = strconv.Atoi(temp[2])
 	curr.PreviousStop, _ = strconv.Atoi(temp[3])
+}
+
+// Custom message encoding struct
+type Message struct {
+	data []byte
+	length uint32
+}
+
+// encode CsvData
+// should return *Message
+func (message *RPCMessage) Marshall() {
+	s := reflect.ValueOf(message).Elem()
+	out := make([]string, s.NumField())
+        typeOfT := s.Type()
+        for i := 0; i < s.NumField(); i++ {
+                f := s.Field(i)
+
+                out[i] = fmt.Sprintf("%s:%v", typeOfT.Field(i).Name, f.Interface())
+        }
+  fmt.Printf("%s\n", strings.Join(out, "|"))
+  
+}
+
+// decode CsvData
+func (message *Message) Unmarshall() *RPCMessage {
+	return new(RPCMessage)
 }
