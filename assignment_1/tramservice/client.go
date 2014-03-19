@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"github.com/nu7hatch/gouuid"
 	"log"
+	"math/rand"
 	"net/rpc"
 	"strconv"
-	"math/rand"
 	"time"
 )
 
@@ -63,10 +63,11 @@ func (c *Client) UpdateTramLocation(data *Tram) (nextStop int, err error) {
 	c.requests += 1
 	rpcID, _ := uuid.NewV4()
 	newMessage := RPCMessage{Request, 1, rpcID, c.requests, 1, data.ToString(), 1}
-	//newMessage.Marshall()
+	temp := newMessage.Marshall()
+	temp.Unmarshall()
 
 	// sleep before executing
-	time.Sleep(time.Duration(genRand())*time.Second)
+	time.Sleep(time.Duration(genRand()) * time.Second)
 
 	var response RPCMessage
 	err = c.socket.Call("Server.UpdateTramLocation", &newMessage, &response)
