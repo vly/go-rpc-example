@@ -3,9 +3,11 @@ package tramservice
 import (
 	"fmt"
 	"github.com/nu7hatch/gouuid"
+	"math/rand"
 	"reflect"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // define system limits
@@ -33,7 +35,6 @@ type RPCMessage struct {
 
 type Tram struct {
 	TramID       *uuid.UUID
-	Route        int
 	CurrentStop  int
 	PreviousStop int
 }
@@ -43,7 +44,7 @@ type Quotient struct {
 }
 
 func (curr *Tram) ToString() string {
-	return fmt.Sprintf("%s,%d,%d,%d", curr.TramID.String(), curr.Route, curr.CurrentStop, curr.PreviousStop)
+	return fmt.Sprintf("%s,%d,%d", curr.TramID.String(), curr.CurrentStop, curr.PreviousStop)
 }
 
 func (curr *Tram) FromString(data string) {
@@ -52,9 +53,8 @@ func (curr *Tram) FromString(data string) {
 		panic("Oh oh, couldn't unpack")
 	}
 	curr.TramID, _ = uuid.ParseHex(temp[0])
-	curr.Route, _ = strconv.Atoi(temp[1])
-	curr.CurrentStop, _ = strconv.Atoi(temp[2])
-	curr.PreviousStop, _ = strconv.Atoi(temp[3])
+	curr.CurrentStop, _ = strconv.Atoi(temp[1])
+	curr.PreviousStop, _ = strconv.Atoi(temp[2])
 }
 
 // Custom message encoding struct
@@ -89,4 +89,12 @@ func (message *Message) Unmarshall() (output *RPCMessage) {
 	tempData := strings.Split(string(message.data), "|")
 	fmt.Println(tempData)
 	return output
+}
+
+// getRand gets a new delay value for tram simulation
+// as per assignment spec.
+func genRand() (out int) {
+	rand.Seed(time.Now().UTC().UnixNano())
+	out = 10 + rand.Intn(10)
+	return
 }

@@ -16,6 +16,15 @@ func ConnectServer() {
 	}
 }
 
+func createTram(routeID int) *Tram {
+	tram := new(Tram)
+	tram.TramID, _ = uuid.NewV4()
+	tram.CurrentStop = 0
+	tram.PreviousStop = 0
+
+	return &tram
+}
+
 // Test GetNextStop functionality
 func TestGetNextStop(t *testing.T) {
 	// init server
@@ -69,9 +78,34 @@ func TestUpdateTramLocation(t *testing.T) {
 	// prep test data and run through accuracy tests
 	for a, b := range tests {
 		result, err := client.UpdateTramLocation(&a)
-		assert.Nil(t, err, "Error getting next stop")
+		assert.Nil(t, err, "Error updating tram location")
 		assert.Equal(t, b, result, "Received unexpected results")
 	}
 	server.getStats()
 
+}
+
+func TestSequentialPathing(t *testing.T) {
+	// init server
+	ConnectServer()
+
+	// set of trams w
+	tramID, _ := uuid.NewV4()
+	tests := []Tram{
+		Tram{tramID, 1, 0, 2},
+		Tram{tramID, 96, 0, 1},
+		Tram{tramID, 109, 0, 2},
+		Tram{tramID, 101, 0, 4},
+	}
+	workingClients := make([]*Client, len(tests))
+	for a, b := range tests {
+		workingClients[a] = new(Client)
+		err := workingClients[a].Init("localhost:1234")
+		assert.Nil(t, err, "Error initialising client")
+		result, err := workingClients[a].UpdateTramLocation(&b)
+		assert.Nil(t, err, "Error updating tram location")
+		assert.NotNil(t, result, "Error updating tram location")
+		workingClients[a].AdvanceTram(&b)
+
+	}
 }
