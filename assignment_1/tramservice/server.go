@@ -17,6 +17,11 @@ import (
 	"strings"
 )
 
+// const (
+// 	// Default server address to bind to
+// 	ServerAddress = ":1234"
+// )
+
 // Main server structure
 type Server struct {
 	Clients map[string]*Record
@@ -29,18 +34,14 @@ type Record struct {
 	Data    *Tram
 }
 
-const (
-	// Default server address to bind to
-	ServerAddress = ":1234"
-)
-
 // Initialise Server, registering RPC service and binding to port 1234
 func (t *Server) Init() {
 
 	t.Status = true
 	rpc.Register(t)
-	tcpAddr, err := net.ResolveTCPAddr("tcp", ServerAddress)
+	tcpAddr, err := net.ResolveTCPAddr("tcp", ":1234")
 	t.checkError(err)
+
 	listener, err := net.ListenTCP("tcp", tcpAddr)
 	t.checkError(err)
 
@@ -81,22 +82,32 @@ func (t *Server) addClient(data *Tram, routeID int) error {
 	return nil
 }
 
-func (t *Server) checkRoute(data *Tram) (int, error) {
-	return 1, nil
-}
+// func (t *Server) checkRoute(data *Tram) (int, error) {
+// 	return 1, nil
+// }
 
 // RegisterTram functionality
 // enables trams to be attached to specific routes.
 func (t *Server) RegisterTram(in *RPCMessage, out *RPCMessage) error {
 	glog.Infoln("RegisterTram received: " + in.CsvData)
+	out.PrepReply(in)
 	tempSplit := strings.Split(in.CsvData, ",")
 	routeID, err := strconv.Atoi(tempSplit[len(tempSplit)-1])
 	if err != nil {
-		glog.Fatalln("Error splitting out tram route")
+		glog.Fatalln("Error splitting out tram route from RPCMessage data.")
 	}
+	stops, err := inDatabase(routeID)
+	if err != nil {
+		glog.Fatalln("Route doesn't exist")
+	}
+
 	var data Tram
 	data.FromString(in.CsvData)
 	err = t.addClient(&data, routeID)
+	// pass current and previous stops to client
+	// these represent the starting (depo) location
+	out.CsvData = fmt.Sprintf("%d,%d", stops[0], stops[1])
+
 	return nil
 }
 
@@ -112,22 +123,10 @@ func (t *Server) updateClient(data *Tram) error {
 		t.Clients[data.TramID.String()].Data = data
 		return nil
 	}
-	// not sure if this is required, maybe able to traverse list.List even if empty
-	// if t.Clients.Len() == 0 {
-	// 	//t.addClient(data)
-
-	// }
-	// check if tramID already exists, and if it does update the currentStop
-	// for e := t.Clients.Front(); e != nil; e = e.Next() {
-	// 	if e.Value.(*Tram).TramID == data.TramID {
-	// 		e.Value = data
-	// 		return nil
-	// 	}
-	// }
-
 	return errors.New("Tram not registered")
 }
 
+// getStats prints out list of current clients
 func (t *Server) getStats() {
 	fmt.Printf("Current clients: %d\n", len(t.Clients))
 }
@@ -152,27 +151,32 @@ func inDatabase(routeID int) (stops []int, err error) {
 // GetNextStop functionality
 // is directional
 func (t *Server) GetNextStop(in *RPCMessage, out *RPCMessage) error {
-	glog.Infoln("Getnextstop received: " + in.CsvData)
-	var data Tram
-	data.FromString(in.CsvData)
-	out.MessageType = Reply
-	out.RequestID = in.RequestID
+	//glog.Infoln("Getnextstop received: " + in.CsvData)
+
+	out.PrepReply(in)
+
 	// get array of stops
 	tempSplit := strings.Split(in.CsvData, ",")
-	routeID, _ := strconv.Atoi(tempSplit[len(tempSplit)-1])
-	stops, err := inDatabase(routeID)
 
+	routeID, _ := strconv.Atoi(tempSplit[0])
+	currentStop, err := strconv.Atoi(strings.TrimSpace(tempSplit[1]))
+	if err != nil {
+		t.checkError(err)
+	}
+	previousStop, _ := strconv.Atoi(tempSplit[2])
+	stops, err := inDatabase(routeID)
 	// if tramID is not present, return -1
 	if err != nil {
+		out.Status = 1
 		out.CsvData = "-1"
 		return nil
 	}
 	// check if current stop is in there and find the previous stop
 	var nextStop int = -2
 	for a, b := range stops {
-		if b == data.CurrentStop {
+		if b == currentStop {
 			if a != len(stops)-1 {
-				if data.PreviousStop == stops[a+1] && a != 0 {
+				if previousStop == stops[a+1] && a != 0 {
 					nextStop = stops[a-1]
 				} else {
 					nextStop = stops[a+1]
@@ -184,7 +188,9 @@ func (t *Server) GetNextStop(in *RPCMessage, out *RPCMessage) error {
 	}
 	if nextStop == -2 {
 		nextStop = -1
+		out.Status = 1
 	}
+
 	out.CsvData = strconv.Itoa(nextStop)
 	return nil
 }
@@ -193,9 +199,7 @@ func (t *Server) GetNextStop(in *RPCMessage, out *RPCMessage) error {
 // returns empty CSV if OK, otherwise -1
 func (t *Server) UpdateTramLocation(in *RPCMessage, out *RPCMessage) error {
 	glog.Infoln("Updatetramlocation received: " + in.CsvData)
-	out.MessageType = Reply
-	out.RequestID = in.RequestID
-
+	out.PrepReply(in)
 	// process input params
 	tempSplit := strings.Split(in.CsvData, ",")
 	if len(tempSplit) != 2 {
@@ -203,43 +207,16 @@ func (t *Server) UpdateTramLocation(in *RPCMessage, out *RPCMessage) error {
 	}
 	newStop, _ := strconv.Atoi(tempSplit[1])
 
-	var data Tram
-	data.FromString(in.CsvData)
-
 	// check if tram has been registered
 	if _, ok := t.Clients[tempSplit[0]]; ok {
-		t.Clients[data.TramID.String()].Data.PreviousStop = t.Clients[data.TramID.String()].Data.PreviousStop
-		t.Clients[data.TramID.String()].Data.CurrentStop = newStop
+		t.Clients[tempSplit[0]].Data.PreviousStop = t.Clients[tempSplit[0]].Data.PreviousStop
+		t.Clients[tempSplit[0]].Data.CurrentStop = newStop
 		return nil
 	}
 
 	glog.Infoln("Tram not registered.")
 	out.CsvData = "-1"
+	out.Status = 1
 	return nil
-
-	// // get array of stops
-	// stops, err := inDatabase(&data)
-
-	// // if tramID is not present, return -1
-	// if err != nil {
-	// 	out.CsvData = "-1"
-	// 	return nil
-	// }
-	// if data.CurrentStop != 0 {
-	// 	// check if current stop is in there and find the previous stop
-	// 	for _, b := range stops {
-	// 		if b == data.CurrentStop {
-	// 			t.updateClient(&data)
-	// 			return nil
-	// 		}
-	// 	}
-	// } else {
-	// 	glog.Infoln("Initial request")
-	// 	data.CurrentStop = stops[0]
-	// 	data.PreviousStop = stops[1]
-	// 	glog.Infoln(data.CurrentStop)
-	// 	t.updateClient(&data)
-	// 	return nil
-	//}
 
 }

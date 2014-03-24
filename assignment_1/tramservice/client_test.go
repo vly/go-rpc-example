@@ -1,8 +1,8 @@
 package tramservice
 
 import (
-	// "fmt"
-	"github.com/nu7hatch/gouuid"
+	//	"fmt"
+	//"github.com/nu7hatch/gouuid"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -16,15 +16,6 @@ func ConnectServer() {
 	}
 }
 
-func createTram(routeID int) *Tram {
-	tram := new(Tram)
-	tram.TramID, _ = uuid.NewV4()
-	tram.CurrentStop = 0
-	tram.PreviousStop = 0
-
-	return &tram
-}
-
 // Test GetNextStop functionality
 func TestGetNextStop(t *testing.T) {
 	// init server
@@ -32,80 +23,69 @@ func TestGetNextStop(t *testing.T) {
 
 	// in/out test input for function
 	// consists of tramID, currentstop, previousstop
-	tramID, _ := uuid.NewV4()
-	tests := map[Tram]int{
-		Tram{tramID, 1, 3, 4}:    2,
-		Tram{tramID, 1, 3, 2}:    4,
-		Tram{tramID, 1, 1, 2}:    2,
-		Tram{tramID, 1, 5, 4}:    4,
-		Tram{tramID, 101, 34, 4}: 5,
-		Tram{tramID, 2, 1, 2}:    -1,
-		Tram{tramID, 1, 99, 2}:   -1,
+	tests := [][]int{
+		[]int{1, 3, 4, 2},
+		[]int{1, 3, 2, 4},
+		[]int{1, 1, 2, 2},
+		[]int{1, 5, 4, 4},
+		[]int{1, 99, 2, -1},
 	}
 
-	// initialise client
-	client := new(Client)
-	err := client.Init("localhost:1234")
-	assert.Nil(t, err, "Error initialising client")
-
-	// prep test data and run through accuracy tests
-	for a, b := range tests {
-		result, err := client.GetNextStop(&a)
-		assert.Nil(t, err, "Error getting next stop")
-		assert.Equal(t, b, result, "Received unexpected results")
+	testClients := make([]Client, 5)
+	for i, b := range testClients {
+		b.Init("localhost:1234")
+		b.RegisterRoute(tests[i][0])
+		b.SetCurrentLocation(tests[i][1], tests[i][2])
+		nextStop, err := b.GetNextStop()
+		assert.Nil(t, err, "Error getting next stop.")
+		assert.Equal(t, tests[i][3], nextStop, "Next stop wasn't the one expected.")
 	}
-
 }
 
+// TestUpdateTramLocation verifies that current Tram locations are updated correctly
+// this is done by advancing the tram once from current starting position and checking
+// expected result.
 func TestUpdateTramLocation(t *testing.T) {
 	// init server
 	ConnectServer()
 
 	// in/out input for function
-	tramID, _ := uuid.NewV4()
-	tests := map[Tram]int{
-		Tram{tramID, 2, 1, 2}:    -1,
-		Tram{tramID, 1, 2, 1}:    0,
-		Tram{tramID, 1, 3, 2}:    0,
-		Tram{tramID, 101, 34, 4}: 0,
+	tests := map[int]int{
+		96: 24,
 	}
 
-	// initialise client
-	client := new(Client)
-	err := client.Init("localhost:1234")
-	assert.Nil(t, err, "Error initialising client")
-
-	// prep test data and run through accuracy tests
-	for a, b := range tests {
-		result, err := client.UpdateTramLocation(&a)
-		assert.Nil(t, err, "Error updating tram location")
-		assert.Equal(t, b, result, "Received unexpected results")
+	for i, z := range tests {
+		b := new(Client)
+		b.Init("localhost:1234")
+		b.RegisterRoute(i)
+		b.AdvanceTram()
+		//assert.Nil(t, err, "Error getting next stop.")
+		assert.Equal(t, z, b.TramObj.CurrentStop, "Next stop wasn't the one expected.")
 	}
-	server.getStats()
 
 }
 
-func TestSequentialPathing(t *testing.T) {
-	// init server
-	ConnectServer()
+// func TestSequentialPathing(t *testing.T) {
+// 	// init server
+// 	ConnectServer()
 
-	// set of trams w
-	tramID, _ := uuid.NewV4()
-	tests := []Tram{
-		Tram{tramID, 1, 0, 2},
-		Tram{tramID, 96, 0, 1},
-		Tram{tramID, 109, 0, 2},
-		Tram{tramID, 101, 0, 4},
-	}
-	workingClients := make([]*Client, len(tests))
-	for a, b := range tests {
-		workingClients[a] = new(Client)
-		err := workingClients[a].Init("localhost:1234")
-		assert.Nil(t, err, "Error initialising client")
-		result, err := workingClients[a].UpdateTramLocation(&b)
-		assert.Nil(t, err, "Error updating tram location")
-		assert.NotNil(t, result, "Error updating tram location")
-		workingClients[a].AdvanceTram(&b)
+// 	// set of trams w
+// 	tramID, _ := uuid.NewV4()
+// 	tests := []Tram{
+// 		Tram{tramID, 1, 0, 2},
+// 		Tram{tramID, 96, 0, 1},
+// 		Tram{tramID, 109, 0, 2},
+// 		Tram{tramID, 101, 0, 4},
+// 	}
+// 	workingClients := make([]*Client, len(tests))
+// 	for a, b := range tests {
+// 		workingClients[a] = new(Client)
+// 		err := workingClients[a].Init("localhost:1234")
+// 		assert.Nil(t, err, "Error initialising client")
+// 		result, err := workingClients[a].UpdateTramLocation(&b)
+// 		assert.Nil(t, err, "Error updating tram location")
+// 		assert.NotNil(t, result, "Error updating tram location")
+// 		workingClients[a].AdvanceTram(&b)
 
-	}
-}
+// 	}
+// }

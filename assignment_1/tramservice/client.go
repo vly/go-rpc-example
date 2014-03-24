@@ -5,8 +5,10 @@ import (
 	"github.com/nu7hatch/gouuid"
 	"log"
 	"net/rpc"
+	"os"
 	"strconv"
-	"time"
+	"strings"
+	//"time"
 )
 
 // Client represents the functional Client
@@ -15,8 +17,16 @@ import (
 type Client struct {
 	socket   *rpc.Client
 	requests uint32
-	tram     *Tram
+	TramObj  *Tram
 	routeID  int
+}
+
+// Check for errors, and exit if found
+func (c *Client) checkError(err error) {
+	if err != nil {
+		log.Fatalln("Fatal error", err.Error())
+		os.Exit(1)
+	}
 }
 
 // Init initialises Client functionality
@@ -30,54 +40,64 @@ func (c *Client) Init(serverIP string) (err error) {
 	c.socket = client
 
 	// generate a new tram
-	c.genTram()
+
+	err = c.genTram()
+	if err != nil {
+		log.Fatalln("Couldn't gen new tram")
+	}
 	return
 }
 
 // genTram generates a new Tram instance
 // including new uuid.
 func (c *Client) genTram() (err error) {
-	c.tram = new(Tram)
-	c.tram.TramID, err = uuid.NewV4()
+	c.TramObj = new(Tram)
+	c.TramObj.TramID, err = uuid.NewV4()
 	if err != nil {
 		log.Fatalln("Error generating UUID")
 	}
 	return
 }
 
+// RegisterRoute enables tram to be bound to a specific route
+// this is a prerequisite for issuing any further commands to the server.
 func (c *Client) RegisterRoute(routeID int) error {
 	// Synchronous call
 	c.requests += 1
 	rpcID, err := uuid.NewV4()
-	data := fmt.Sprintf("%s,%d", c.tram.ToString(), routeID)
+	c.checkError(err)
+	data := fmt.Sprintf("%s,%d", c.TramObj.ToString(), routeID)
 	c.routeID = routeID
 	newMessage := RPCMessage{Request, 1, rpcID, 1, 1, data, 1}
 
 	var response RPCMessage
 	err = c.socket.Call("Server.RegisterTram", &newMessage, &response)
-	if err != nil {
-		log.Fatal("Server error:", err)
-	}
+	c.checkError(err)
 	c.checkIDs(&newMessage, &response)
 
-	fmt.Printf("Response: %s\n", response.CsvData)
+	if len(response.CsvData) != 0 {
+		data := strings.Split(response.CsvData, ",")
+		c.TramObj.CurrentStop, _ = strconv.Atoi(data[0])
+		c.TramObj.PreviousStop, _ = strconv.Atoi(data[1])
+	}
 	return err
 }
 
 // checkID varifies if the incoming RPCMessage has a matching RequestID
 // as the sent one.
 func (c *Client) checkIDs(to *RPCMessage, from *RPCMessage) {
-	if to.RequestID != from.RequestID {
-		log.Fatalf("Expected %d but received %d\n", to.RequestID, from.RequestID)
+	if to.RPCId.String() != from.RPCId.String() {
+		log.Fatalf("Expected %d but received %d\n", to.RPCId, from.RPCId)
 	}
 }
 
 // AdvanceTram moves the current tram to the next stop
 func (c *Client) AdvanceTram() {
-	c.GetNextStop()
+	nextStop, err := c.GetNextStop()
+	c.checkError(err)
 	// sleep before executing
-	time.Sleep(time.Duration(genRand()) * time.Second)
-	c.UpdateTramLocation()
+	//time.Sleep(time.Duration(genRand()) * time.Second)
+	c.UpdateTramLocation(nextStop)
 }
 
 // GetNextStop requests the next stop ID for the current
@@ -87,9 +107,10 @@ func (c *Client) GetNextStop() (nextStop int, err error) {
 	// Synchronous call
 	c.requests += 1
 	rpcID, err := uuid.NewV4()
-	data := fmt.Sprintf("%d,%d, %d", c.routeID, c.tram.CurrentStop, c.tram.PreviousStop)
-	newMessage := RPCMessage{Request, 1, rpcID, 1, 1, data, 1}
+	c.checkError(err)
 
+	data := fmt.Sprintf("%d,%d,%d", c.routeID, c.TramObj.CurrentStop, c.TramObj.PreviousStop)
+	newMessage := RPCMessage{Request, 1, rpcID, 1, 1, data, 1}
 	var response RPCMessage
 	err = c.socket.Call("Server.GetNextStop", &newMessage, &response)
 	if err != nil {
@@ -97,19 +118,28 @@ func (c *Client) GetNextStop() (nextStop int, err error) {
 	}
 	c.checkIDs(&newMessage, &response)
 
-	fmt.Printf("Response: %s\n", response.CsvData)
+	//fmt.Printf("Response: %s\n", response.CsvData)
 	nextStop, err = strconv.Atoi(response.CsvData)
+	c.checkError(err)
 	return
+}
+
+// SetCurrentLocation overwrites current stops in local Tram object
+func (c *Client) SetCurrentLocation(currentStop int, previousStop int) error {
+	c.TramObj.CurrentStop = currentStop
+	c.TramObj.PreviousStop = previousStop
+
+	return nil
 }
 
 // UpdateTramLocation notifies the server that the tram has arrived at
 // the next tram stop.
-func (c *Client) UpdateTramLocation() (nextStop int, err error) {
+func (c *Client) UpdateTramLocation(nextStop int) (err error) {
 	// increment requests counter
 	c.requests += 1
 	rpcID, err := uuid.NewV4()
 	// pass a subset of Tram object to satisfy brief
-	csvData := fmt.Sprintf("%s,%d", c.tram.TramID.String(), c.tram.CurrentStop)
+	csvData := fmt.Sprintf("%s,%d", c.TramObj.TramID.String(), nextStop)
 	newMessage := RPCMessage{Request, 1, rpcID, c.requests, 1, csvData, 1}
 
 	// compress the message using a custom marshalling function
@@ -124,9 +154,12 @@ func (c *Client) UpdateTramLocation() (nextStop int, err error) {
 		log.Fatal("Server error:", err)
 	}
 	c.checkIDs(&newMessage, &response)
-	fmt.Printf("Response: %s\n", response.CsvData)
-	if len(response.CsvData) != 0 {
-		nextStop, err = strconv.Atoi(response.CsvData)
+
+	// if everything OK, set the nextStop as currentStop
+	if len(response.CsvData) == 0 {
+		c.TramObj.PreviousStop = c.TramObj.CurrentStop
+		c.TramObj.CurrentStop = nextStop
 	}
+
 	return
 }

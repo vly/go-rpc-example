@@ -33,14 +33,17 @@ type RPCMessage struct {
 	Status        uint32
 }
 
+func (m *RPCMessage) PrepReply(in *RPCMessage) {
+	m.MessageType = Reply
+	m.RequestID = in.RequestID
+	m.RPCId = in.RPCId
+	m.TranslationId = in.TranslationId
+}
+
 type Tram struct {
 	TramID       *uuid.UUID
 	CurrentStop  int
 	PreviousStop int
-}
-
-type Quotient struct {
-	Quo, Rem int
 }
 
 func (curr *Tram) ToString() string {
@@ -50,11 +53,11 @@ func (curr *Tram) ToString() string {
 func (curr *Tram) FromString(data string) {
 	temp := strings.Split(data, ",")
 	if len(temp) != 4 {
-		panic("Oh oh, couldn't unpack")
+		panic("Oh oh, couldn't unpack Tram data")
 	}
 	curr.TramID, _ = uuid.ParseHex(temp[0])
-	curr.CurrentStop, _ = strconv.Atoi(temp[1])
-	curr.PreviousStop, _ = strconv.Atoi(temp[2])
+	curr.CurrentStop, _ = strconv.Atoi(strings.TrimSpace(temp[1]))
+	curr.PreviousStop, _ = strconv.Atoi(strings.TrimSpace(temp[2]))
 }
 
 // Custom message encoding struct
@@ -68,26 +71,40 @@ type Message struct {
 func (message *RPCMessage) Marshall() *Message {
 	s := reflect.ValueOf(message).Elem()
 	out := make([]string, s.NumField())
-	typeOfT := s.Type()
 	for i := 0; i < s.NumField(); i++ {
 		f := s.Field(i)
 
-		out[i] = fmt.Sprintf("%s:%v", typeOfT.Field(i).Name, f.Interface())
+		out[i] = fmt.Sprintf("%v", f.Interface())
 	}
 
 	output := new(Message)
 	output.data = []byte(fmt.Sprintf("%s\n", strings.Join(out, "|")))
 	output.length = uint32(len(output.data))
-
+	//fmt.Printf("marshalling: %s with a size of %d\n", output.data, output.length)
 	return output
 }
 
 // Unmarshall decodes CsvData from the Message.
 // should return new RPCMessage with parsed values.
-func (message *Message) Unmarshall() (output *RPCMessage) {
-
+func (message *Message) Unmarshall() *RPCMessage {
+	output := new(RPCMessage)
 	tempData := strings.Split(string(message.data), "|")
-	fmt.Println(tempData)
+	if tempData[0] == strconv.Itoa(0) {
+		output.MessageType = Request
+	} else {
+		output.MessageType = Reply
+	}
+	transactionID, _ := strconv.Atoi(tempData[1])
+	output.TranslationId = uint32(transactionID)
+	output.RPCId, _ = uuid.ParseHex(tempData[2])
+	requestID, _ := strconv.Atoi(tempData[3])
+	output.RequestID = uint32(requestID)
+	procedureID, _ := strconv.Atoi(tempData[4])
+	output.ProcedureID = uint32(procedureID)
+	output.CsvData = tempData[5]
+	status, _ := strconv.Atoi(tempData[6])
+	output.Status = uint32(status)
+	//fmt.Println(output.RPCId.String())
 	return output
 }
 
