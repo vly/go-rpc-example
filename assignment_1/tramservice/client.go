@@ -46,6 +46,13 @@ func (c *Client) checkIDs(to *RPCMessage, from *RPCMessage) {
 	}
 }
 
+// checkStatus verifies the response status code.
+func (c *Client) checkStatus(response *RPCMessage) {
+	if response.Status != 0 {
+		log.Fatalln("Server responded with an error.")
+	}
+}
+
 // Init initialises Client functionality
 // by establishing connection to server and generating
 // a new tram object.
@@ -94,6 +101,7 @@ func (c *Client) RegisterRoute(routeID int) error {
 	err = c.socket.Call("Server.CallBroker", &newMessage, &response)
 	c.checkError(err)
 	c.checkIDs(&newMessage, &response)
+	c.checkStatus(&response)
 
 	if len(response.CsvData) != 0 {
 		data := strings.Split(response.CsvData, ",")

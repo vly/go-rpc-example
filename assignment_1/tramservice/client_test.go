@@ -29,9 +29,10 @@ func TestGetNextStop(t *testing.T) {
 		[]int{1, 1, 2, 2},
 		[]int{1, 5, 4, 4},
 		[]int{1, 99, 2, -1},
+		[]int{1, 99, 2, -1}, // 6th tram on route should break
 	}
 
-	testClients := make([]Client, 5)
+	testClients := make([]Client, 6)
 	for i, b := range testClients {
 		b.Init("localhost:1234")
 		b.RegisterRoute(tests[i][0])

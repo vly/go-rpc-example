@@ -73,7 +73,7 @@ func (t *Server) checkError(err error) {
 func (t *Server) addClient(data *Tram, routeID int) error {
 	if _, ok := t.Routes[routeID]; ok {
 		if len(t.Routes[routeID]) == MAX_ROUTE_TRAM {
-			return nil
+			return errors.New("Maximum trams reached on this route.")
 		}
 	}
 	t.Routes[routeID] = append(t.Routes[routeID], data)
@@ -118,9 +118,13 @@ func (t *Server) RegisterTram(in *RPCMessage, out *RPCMessage) error {
 	var data Tram
 	data.FromString(in.CsvData)
 	err = t.addClient(&data, routeID)
-	// pass current and previous stops to client
-	// these represent the starting (depo) location
-	out.CsvData = fmt.Sprintf("%d,%d", stops[0], stops[1])
+	if err != nil {
+		out.Status = 1
+	} else {
+		// pass current and previous stops to client
+		// these represent the starting (depo) location
+		out.CsvData = fmt.Sprintf("%d,%d", stops[0], stops[1])
+	}
 
 	return nil
 }
