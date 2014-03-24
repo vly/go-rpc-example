@@ -29,6 +29,23 @@ func (c *Client) checkError(err error) {
 	}
 }
 
+// checkID varifies if the incoming RPCMessage has matching IDs
+// as the sent ones.
+func (c *Client) checkIDs(to *RPCMessage, from *RPCMessage) {
+	if to.RPCId.String() != from.RPCId.String() {
+		log.Fatalf("Expected %d but received %d\n", to.RPCId, from.RPCId)
+	}
+	if to.ProcedureID != from.ProcedureID {
+		log.Fatalf("Expected %d but received %d\n", to.ProcedureID, from.ProcedureID)
+	}
+	if to.RequestID != from.RequestID {
+		log.Fatalf("Expected %d but received %d\n", to.RequestID, from.RequestID)
+	}
+	if to.TranslationId != from.TranslationId {
+		log.Fatalf("Expected %d but received %d\n", to.TranslationId, from.TranslationId)
+	}
+}
+
 // Init initialises Client functionality
 // by establishing connection to server and generating
 // a new tram object.
@@ -64,14 +81,17 @@ func (c *Client) genTram() (err error) {
 func (c *Client) RegisterRoute(routeID int) error {
 	// Synchronous call
 	c.requests += 1
+	//Specify procedureID
+	procedureID := uint32(0)
 	rpcID, err := uuid.NewV4()
 	c.checkError(err)
 	data := fmt.Sprintf("%s,%d", c.TramObj.ToString(), routeID)
 	c.routeID = routeID
-	newMessage := RPCMessage{Request, 1, rpcID, 1, 1, data, 1}
+	newMessage := RPCMessage{Request, 1, rpcID, 1, procedureID, data, 0}
 
 	var response RPCMessage
-	err = c.socket.Call("Server.RegisterTram", &newMessage, &response)
+	// direct call: err = c.socket.Call("Server.RegisterTram", &newMessage, &response)
+	err = c.socket.Call("Server.CallBroker", &newMessage, &response)
 	c.checkError(err)
 	c.checkIDs(&newMessage, &response)
 
@@ -81,14 +101,6 @@ func (c *Client) RegisterRoute(routeID int) error {
 		c.TramObj.PreviousStop, _ = strconv.Atoi(data[1])
 	}
 	return err
-}
-
-// checkID varifies if the incoming RPCMessage has a matching RequestID
-// as the sent one.
-func (c *Client) checkIDs(to *RPCMessage, from *RPCMessage) {
-	if to.RPCId.String() != from.RPCId.String() {
-		log.Fatalf("Expected %d but received %d\n", to.RPCId, from.RPCId)
-	}
 }
 
 // AdvanceTram moves the current tram to the next stop
@@ -106,13 +118,17 @@ func (c *Client) AdvanceTram() {
 func (c *Client) GetNextStop() (nextStop int, err error) {
 	// Synchronous call
 	c.requests += 1
+	//Specify procedureID
+	procedureID := uint32(1)
+
 	rpcID, err := uuid.NewV4()
 	c.checkError(err)
 
 	data := fmt.Sprintf("%d,%d,%d", c.routeID, c.TramObj.CurrentStop, c.TramObj.PreviousStop)
-	newMessage := RPCMessage{Request, 1, rpcID, 1, 1, data, 1}
+	newMessage := RPCMessage{Request, 1, rpcID, 1, procedureID, data, 0}
 	var response RPCMessage
-	err = c.socket.Call("Server.GetNextStop", &newMessage, &response)
+	// for direct call: err = c.socket.Call("Server.GetNextStop", &newMessage, &response)
+	err = c.socket.Call("Server.CallBroker", &newMessage, &response)
 	if err != nil {
 		log.Fatal("Server error:", err)
 	}
@@ -137,10 +153,13 @@ func (c *Client) SetCurrentLocation(currentStop int, previousStop int) error {
 func (c *Client) UpdateTramLocation(nextStop int) (err error) {
 	// increment requests counter
 	c.requests += 1
+	//Specify procedureID
+	procedureID := uint32(2)
+
 	rpcID, err := uuid.NewV4()
 	// pass a subset of Tram object to satisfy brief
 	csvData := fmt.Sprintf("%s,%d", c.TramObj.TramID.String(), nextStop)
-	newMessage := RPCMessage{Request, 1, rpcID, c.requests, 1, csvData, 1}
+	newMessage := RPCMessage{Request, 1, rpcID, c.requests, procedureID, csvData, 0}
 
 	// compress the message using a custom marshalling function
 	// as described in part two of the assignment
@@ -149,7 +168,8 @@ func (c *Client) UpdateTramLocation(nextStop int) (err error) {
 
 	// carry out the RPC call and process response
 	var response RPCMessage
-	err = c.socket.Call("Server.UpdateTramLocation", &newMessage, &response)
+	// direct call: err = c.socket.Call("Server.UpdateTramLocation", &newMessage, &response)
+	err = c.socket.Call("Server.CallBroker", &newMessage, &response)
 	if err != nil {
 		log.Fatal("Server error:", err)
 	}

@@ -38,6 +38,7 @@ func (m *RPCMessage) PrepReply(in *RPCMessage) {
 	m.RequestID = in.RequestID
 	m.RPCId = in.RPCId
 	m.TranslationId = in.TranslationId
+	m.ProcedureID = in.ProcedureID
 }
 
 type Tram struct {

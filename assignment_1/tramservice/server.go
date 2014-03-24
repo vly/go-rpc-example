@@ -82,9 +82,23 @@ func (t *Server) addClient(data *Tram, routeID int) error {
 	return nil
 }
 
-// func (t *Server) checkRoute(data *Tram) (int, error) {
-// 	return 1, nil
-// }
+// CallBroker routes calls to various functions
+// this is not really necessary as I am exposing selected methods
+// through RPC registry of Server struct but... for the sake of assignment
+// here it is.
+func (t *Server) CallBroker(in *RPCMessage, out *RPCMessage) error {
+	switch in.ProcedureID {
+	case 0:
+		return t.RegisterTram(in, out)
+	case 1:
+		return t.GetNextStop(in, out)
+	case 2:
+		return t.UpdateTramLocation(in, out)
+	}
+	out.PrepReply(in)
+	out.Status = 1
+	return nil
+}
 
 // RegisterTram functionality
 // enables trams to be attached to specific routes.
