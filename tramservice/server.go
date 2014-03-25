@@ -64,6 +64,13 @@ func (t *Server) checkError(err error) {
 	}
 }
 
+// Clear current clients
+func (t *Server) clearClients() error {
+	t.Routes = make(map[int][]*Tram)
+	t.Clients = make(map[string]*Record)
+	return nil
+}
+
 // Make sure that a tram route doesn't exceed 5 trams
 func (t *Server) addClient(data *Tram, routeID int) error {
 	if _, ok := t.Routes[routeID]; ok {

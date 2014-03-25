@@ -9,7 +9,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	//"time"
+	// "time"
 )
 
 // Client represents the functional Client
@@ -118,12 +118,13 @@ func (c *Client) RegisterRoute(routeID int) error {
 }
 
 // AdvanceTram moves the current tram to the next stop
-func (c *Client) AdvanceTram() {
+func (c *Client) AdvanceTram() error {
 	nextStop, err := c.GetNextStop()
 	c.checkError(err)
 	// sleep before executing
 	//time.Sleep(time.Duration(genRand()) * time.Second)
-	c.UpdateTramLocation(nextStop)
+	err = c.UpdateTramLocation(nextStop)
+	return err
 }
 
 // GetNextStop requests the next stop ID for the current
@@ -204,4 +205,15 @@ func (c *Client) UpdateTramLocation(nextStop int) (err error) {
 	}
 
 	return
+}
+
+// Async wrapper
+func (c *Client) AsyncAdvance(ch chan int) {
+	fmt.Printf("%d", c.routeID)
+	err := c.AdvanceTram()
+	if err != nil {
+		ch <- 1
+		return
+	}
+	ch <- 0
 }

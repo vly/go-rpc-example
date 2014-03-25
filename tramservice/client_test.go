@@ -1,8 +1,7 @@
 package tramservice
 
 import (
-	//	"fmt"
-	//"github.com/nu7hatch/gouuid"
+	"fmt"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -75,27 +74,43 @@ func TestUpdateTramLocation(t *testing.T) {
 
 }
 
-// func TestSequentialPathing(t *testing.T) {
-// 	// init server
-// 	ConnectServer()
+func TestSequentialPathing(t *testing.T) {
+	// init server
+	ConnectServer()
 
-// 	// set of trams w
-// 	tramID, _ := uuid.NewV4()
-// 	tests := []Tram{
-// 		Tram{tramID, 1, 0, 2},
-// 		Tram{tramID, 96, 0, 1},
-// 		Tram{tramID, 109, 0, 2},
-// 		Tram{tramID, 101, 0, 4},
-// 	}
-// 	workingClients := make([]*Client, len(tests))
-// 	for a, b := range tests {
-// 		workingClients[a] = new(Client)
-// 		err := workingClients[a].Init("localhost:1234")
-// 		assert.Nil(t, err, "Error initialising client")
-// 		result, err := workingClients[a].UpdateTramLocation(&b)
-// 		assert.Nil(t, err, "Error updating tram location")
-// 		assert.NotNil(t, result, "Error updating tram location")
-// 		workingClients[a].AdvanceTram(&b)
+	// clear current clients from previous tests
+	server.clearClients()
 
-// 	}
-// }
+	// list of routes to bind the running trams to
+	tests := []int{1, 96, 1}
+
+	// initialise test trams, ready to start moving
+	workingClients := make([]Client, len(tests))
+	for i, b := range workingClients {
+		b.Init("localhost:1234")
+		err := b.RegisterRoute(tests[i])
+		assert.Nil(t, err, "Error registering route")
+	}
+	testChannels := make([]chan int, len(tests))
+	for i, b := range workingClients {
+		go b.AsyncAdvance(testChannels[i])
+	}
+
+	select {
+	case tram1 := <-testChannels[0]:
+		fmt.Println("Tram 1 received")
+		if tram1 != 1 {
+			go workingClients[0].AsyncAdvance(testChannels[0])
+		}
+	case tram2 := <-testChannels[1]:
+		fmt.Println("Tram 2 received")
+		if tram2 != 1 {
+			go workingClients[1].AsyncAdvance(testChannels[1])
+		}
+	case tram3 := <-testChannels[2]:
+		fmt.Println("Tram 3 received")
+		if tram3 != 2 {
+			go workingClients[2].AsyncAdvance(testChannels[2])
+		}
+	}
+}
