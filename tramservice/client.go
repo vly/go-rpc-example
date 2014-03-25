@@ -1,6 +1,7 @@
 package tramservice
 
 import (
+	"errors"
 	"fmt"
 	"github.com/nu7hatch/gouuid"
 	"log"
@@ -47,10 +48,11 @@ func (c *Client) checkIDs(to *RPCMessage, from *RPCMessage) {
 }
 
 // checkStatus verifies the response status code.
-func (c *Client) checkStatus(response *RPCMessage) {
+func (c *Client) checkStatus(response *RPCMessage) error {
 	if response.Status != 0 {
-		log.Fatalln("Server responded with an error.")
+		return errors.New("Server responsed with an error")
 	}
+	return nil
 }
 
 // Init initialises Client functionality
@@ -101,7 +103,11 @@ func (c *Client) RegisterRoute(routeID int) error {
 	err = c.socket.Call("Server.CallBroker", &newMessage, &response)
 	c.checkError(err)
 	c.checkIDs(&newMessage, &response)
-	c.checkStatus(&response)
+	chk := c.checkStatus(&response)
+	if chk != nil {
+		fmt.Println("RegisterRoute: Error registering the tram, route tram limit reached.")
+		return chk
+	}
 
 	if len(response.CsvData) != 0 {
 		data := strings.Split(response.CsvData, ",")
@@ -141,7 +147,11 @@ func (c *Client) GetNextStop() (nextStop int, err error) {
 		log.Fatal("Server error:", err)
 	}
 	c.checkIDs(&newMessage, &response)
-
+	chk := c.checkStatus(&response)
+	if chk != nil {
+		fmt.Println("GetNextStop: Error getting next stop, current tram position is not valid.")
+		return -1, chk
+	}
 	//fmt.Printf("Response: %s\n", response.CsvData)
 	nextStop, err = strconv.Atoi(response.CsvData)
 	c.checkError(err)
@@ -182,7 +192,11 @@ func (c *Client) UpdateTramLocation(nextStop int) (err error) {
 		log.Fatal("Server error:", err)
 	}
 	c.checkIDs(&newMessage, &response)
-
+	chk := c.checkStatus(&response)
+	if chk != nil {
+		fmt.Println("UpdateTramLocation: Error updating current location, next stop is not valid.")
+		return chk
+	}
 	// if everything OK, set the nextStop as currentStop
 	if len(response.CsvData) == 0 {
 		c.TramObj.PreviousStop = c.TramObj.CurrentStop

@@ -17,11 +17,6 @@ import (
 	"strings"
 )
 
-// const (
-// 	// Default server address to bind to
-// 	ServerAddress = ":1234"
-// )
-
 // Main server structure
 type Server struct {
 	Clients map[string]*Record
@@ -35,7 +30,7 @@ type Record struct {
 }
 
 // Initialise Server, registering RPC service and binding to port 1234
-func (t *Server) Init() {
+func (t *Server) init() {
 
 	t.Status = true
 	rpc.Register(t)

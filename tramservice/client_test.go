@@ -12,7 +12,7 @@ var server Server
 
 func ConnectServer() {
 	if server.Status != true {
-		go server.Init()
+		go server.init()
 	}
 }
 
@@ -35,10 +35,19 @@ func TestGetNextStop(t *testing.T) {
 	testClients := make([]Client, 6)
 	for i, b := range testClients {
 		b.Init("localhost:1234")
-		b.RegisterRoute(tests[i][0])
+		err := b.RegisterRoute(tests[i][0])
+		// error raised if trying to register more than 5 trams
+		if i > 5 {
+			assert.NotNil(t, err, "RegisterRoute did not fail as expected.")
+		}
 		b.SetCurrentLocation(tests[i][1], tests[i][2])
 		nextStop, err := b.GetNextStop()
-		assert.Nil(t, err, "Error getting next stop.")
+		// error raised if invalid current stop
+		if tests[i][1] == 99 {
+			assert.NotNil(t, err, "NextStop did not fail as expected.")
+		} else {
+			assert.Nil(t, err, "Error getting next stop.")
+		}
 		assert.Equal(t, tests[i][3], nextStop, "Next stop wasn't the one expected.")
 	}
 }
