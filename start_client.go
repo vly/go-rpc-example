@@ -1,8 +1,8 @@
 package main
 
 import (
-	"./tramservice"
 	"fmt"
+	"github.com/vly/COSC1170/tramservice"
 )
 
 const (
