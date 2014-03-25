@@ -13,7 +13,7 @@ const (
 // Main tramservice client
 // registers on a specific route
 // then unregisters on exit
-func main() {
+func mainClient() {
 	fmt.Println("Starting Tramservice client")
 	client := new(tramservice.Client)
 	err := client.Init(ServerAddress)
