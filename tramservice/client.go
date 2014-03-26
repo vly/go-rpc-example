@@ -9,7 +9,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	// "time"
+	"time"
 )
 
 // Client represents the functional Client
@@ -122,7 +122,7 @@ func (c *Client) AdvanceTram() error {
 	nextStop, err := c.GetNextStop()
 	c.checkError(err)
 	// sleep before executing
-	//time.Sleep(time.Duration(genRand()) * time.Second)
+	time.Sleep(time.Duration(genRand()) * time.Second)
 	err = c.UpdateTramLocation(nextStop)
 	return err
 }

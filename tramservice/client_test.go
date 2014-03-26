@@ -83,36 +83,12 @@ func TestSequentialPathing(t *testing.T) {
 	server.clearClients()
 
 	// list of routes to bind the running trams to
-	tests := []int{1, 96, 1}
+	tests := []int{1, 96, 101, 1, 96, 109}
+	// initialise goroutes for client calls
+	ch := make(chan *Tram)
+	for i, _ := range tests {
+		//chans[i] = make(chan *Tram)
 
-	// initialise test trams, ready to start moving
-	// workingClients := make([]Client, len(tests))
-	// for i, b := range workingClients {
-	// 	b.Init("localhost:1234")
-	// 	err := b.RegisterRoute(tests[i])
-	// 	assert.Nil(t, err, "Error registering route")
-	// }
-	// testChannels := make([]chan int, len(tests))
-	// for i, b := range testChannels {
-	// 	go func(route int) {
-	// 		worker := new(Client)
-	// 		worker.Init("localhost:1234")
-	// 		err := worker.RegisterRoute(route)
-	// 		if err != nil {
-	// 			fmt.Println("oh oh")
-	// 		}
-	// 		worker.AsyncAdvance()
-	// 		b <- 1
-	// 	}(tests[i])
-	// }
-	// fmt.Println(len(testChannels))
-
-	// }
-	var chans [3]chan string
-	for i := range chans {
-		chans[i] = make(chan string)
-	}
-	for i, _ := range chans {
 		go func(route int) {
 			worker := new(Client)
 			worker.Init("localhost:1234")
@@ -120,23 +96,19 @@ func TestSequentialPathing(t *testing.T) {
 			if err != nil {
 				fmt.Println("oh oh")
 			}
-			for j := 0; j < 5; j++ {
+			for j := 0; j < 10; j++ {
 				worker.AsyncAdvance()
-				chans[i] <- fmt.Sprintf("%s: %d", worker.TramObj.TramID.String(), worker.TramObj.CurrentStop)
+				ch <- worker.TramObj
 			}
 
 		}(tests[i])
 	}
-
+	// listen for messages from clients, until a 30sec gap of inactivity
 	for {
 		select {
-		case <-chans[0]:
-			fmt.Printf("Tram 1 received")
-		case <-chans[1]:
-			fmt.Println("Tram 2 received")
-		case response := <-chans[2]:
-			fmt.Printf("Tram 3 received: %s\n", response)
-		case <-time.After(5 * 1e9):
+		case response := <-ch:
+			fmt.Printf("Tram %s is at tram stop: %d\n", response.TramID.String(), response.CurrentStop)
+		case <-time.After(30 * 1e9):
 			// 30 sec timeout
 			return
 		}
