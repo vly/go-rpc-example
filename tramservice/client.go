@@ -98,12 +98,15 @@ func (c *Client) RegisterRoute(routeID int) error {
 	c.routeID = routeID
 	newMessage := RPCMessage{Request, 1, rpcID, 1, procedureID, data, 0}
 
-	var response RPCMessage
+	var response *RPCMessage
+	var mashalledResponse Message
+	marshalledMessage := newMessage.Marshall()
 	// direct call: err = c.socket.Call("Server.RegisterTram", &newMessage, &response)
-	err = c.socket.Call("Server.CallBroker", &newMessage, &response)
+	err = c.socket.Call("Server.CallBroker", &marshalledMessage, &mashalledResponse)
 	c.checkError(err)
-	c.checkIDs(&newMessage, &response)
-	chk := c.checkStatus(&response)
+	response = mashalledResponse.Unmarshall()
+	c.checkIDs(&newMessage, response)
+	chk := c.checkStatus(response)
 	if chk != nil {
 		fmt.Println("RegisterRoute: Error registering the tram, route tram limit reached.")
 		return chk
@@ -141,15 +144,21 @@ func (c *Client) GetNextStop() (nextStop int, err error) {
 	c.checkError(err)
 
 	data := fmt.Sprintf("%d,%d,%d", c.routeID, c.TramObj.CurrentStop, c.TramObj.PreviousStop)
+
 	newMessage := RPCMessage{Request, 1, rpcID, 1, procedureID, data, 0}
-	var response RPCMessage
+	marshalledMessage := newMessage.Marshall()
+
+	var response *RPCMessage
+	mashalledResponse := new(Message)
 	// for direct call: err = c.socket.Call("Server.GetNextStop", &newMessage, &response)
-	err = c.socket.Call("Server.CallBroker", &newMessage, &response)
+
+	err = c.socket.Call("Server.CallBroker", &marshalledMessage, &mashalledResponse)
 	if err != nil {
 		log.Fatal("Server error:", err)
 	}
-	c.checkIDs(&newMessage, &response)
-	chk := c.checkStatus(&response)
+	response = mashalledResponse.Unmarshall()
+	c.checkIDs(&newMessage, response)
+	chk := c.checkStatus(response)
 	if chk != nil {
 		fmt.Println("GetNextStop: Error getting next stop, current tram position is not valid.")
 		return -1, chk
@@ -180,20 +189,20 @@ func (c *Client) UpdateTramLocation(nextStop int) (err error) {
 	csvData := fmt.Sprintf("%s,%d", c.TramObj.TramID.String(), nextStop)
 	newMessage := RPCMessage{Request, 1, rpcID, c.requests, procedureID, csvData, 0}
 
-	// compress the message using a custom marshalling function
-	// as described in part two of the assignment
-	temp := newMessage.Marshall()
-	temp.Unmarshall()
-
 	// carry out the RPC call and process response
-	var response RPCMessage
-	// direct call: err = c.socket.Call("Server.UpdateTramLocation", &newMessage, &response)
-	err = c.socket.Call("Server.CallBroker", &newMessage, &response)
+	marshalledMessage := newMessage.Marshall()
+
+	var response *RPCMessage
+	mashalledResponse := new(Message)
+	// direct call: err = c.socket.Call("Server.UpdateTramLocation", &newMessage, response)
+
+	err = c.socket.Call("Server.CallBroker", &marshalledMessage, &mashalledResponse)
 	if err != nil {
 		log.Fatal("Server error:", err)
 	}
-	c.checkIDs(&newMessage, &response)
-	chk := c.checkStatus(&response)
+	response = mashalledResponse.Unmarshall()
+	c.checkIDs(&newMessage, response)
+	chk := c.checkStatus(response)
 	if chk != nil {
 		fmt.Println("UpdateTramLocation: Error updating current location, next stop is not valid.")
 		return chk

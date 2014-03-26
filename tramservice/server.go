@@ -87,17 +87,27 @@ func (t *Server) addClient(data *Tram, routeID int) error {
 // this is not really necessary as I am exposing selected methods
 // through RPC registry of Server struct but... for the sake of assignment
 // here it is.
-func (t *Server) CallBroker(in *RPCMessage, out *RPCMessage) error {
+func (t *Server) CallBroker(marshallIn *Message, marshallOut *Message) error {
+	in := marshallIn.Unmarshall()
+	out := new(RPCMessage)
+
 	switch in.ProcedureID {
 	case 0:
-		return t.RegisterTram(in, out)
+		err := t.RegisterTram(in, out)
+		*marshallOut = *out.Marshall()
+		return err
 	case 1:
-		return t.GetNextStop(in, out)
+		err := t.GetNextStop(in, out)
+		*marshallOut = *out.Marshall()
+		return err
 	case 2:
-		return t.UpdateTramLocation(in, out)
+		err := t.UpdateTramLocation(in, out)
+		*marshallOut = *out.Marshall()
+		return err
 	}
 	out.PrepReply(in)
 	out.Status = 1
+	*marshallOut = *out.Marshall()
 	return nil
 }
 

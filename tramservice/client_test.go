@@ -37,6 +37,7 @@ func TestGetNextStop(t *testing.T) {
 		b.Init("localhost:1234")
 		err := b.RegisterRoute(tests[i][0])
 		// error raised if trying to register more than 5 trams
+
 		if i > 5 {
 			assert.NotNil(t, err, "RegisterRoute did not fail as expected.")
 		}

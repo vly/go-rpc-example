@@ -65,8 +65,8 @@ func (curr *Tram) FromString(data string) {
 
 // Custom message encoding struct
 type Message struct {
-	data   []byte
-	length uint32
+	Data   []byte
+	Length uint32
 }
 
 // encode CsvData
@@ -81,8 +81,8 @@ func (message *RPCMessage) Marshall() *Message {
 	}
 
 	output := new(Message)
-	output.data = []byte(fmt.Sprintf("%s\n", strings.Join(out, "|")))
-	output.length = uint32(len(output.data))
+	output.Data = []byte(fmt.Sprintf("%s", strings.Join(out, "|")))
+	output.Length = uint32(len(output.Data))
 	return output
 }
 
@@ -90,7 +90,7 @@ func (message *RPCMessage) Marshall() *Message {
 // should return new RPCMessage with parsed values.
 func (message *Message) Unmarshall() *RPCMessage {
 	output := new(RPCMessage)
-	tempData := strings.Split(string(message.data), "|")
+	tempData := strings.Split(string(message.Data), "|")
 	if tempData[0] == strconv.Itoa(0) {
 		output.MessageType = Request
 	} else {
