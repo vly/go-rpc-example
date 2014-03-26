@@ -80,7 +80,6 @@ func (t *Server) addClient(data *Tram, routeID int) error {
 	}
 	t.Routes[routeID] = append(t.Routes[routeID], data)
 	t.Clients[data.TramID.String()] = &Record{routeID, data}
-	//t.Clients[data.] .PushFront([]interface{data)
 	return nil
 }
 
