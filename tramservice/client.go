@@ -208,12 +208,8 @@ func (c *Client) UpdateTramLocation(nextStop int) (err error) {
 }
 
 // Async wrapper
-func (c *Client) AsyncAdvance(ch chan int) {
-	fmt.Printf("%d", c.routeID)
-	err := c.AdvanceTram()
-	if err != nil {
-		ch <- 1
-		return
-	}
-	ch <- 0
+func (c *Client) AsyncAdvance() {
+	c.AdvanceTram()
+	return
+
 }

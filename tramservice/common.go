@@ -95,6 +95,7 @@ func (message *Message) Unmarshall() *RPCMessage {
 	} else {
 		output.MessageType = Reply
 	}
+	// a bit ugly but works
 	transactionID, _ := strconv.Atoi(tempData[1])
 	output.TranslationId = uint32(transactionID)
 	output.RPCId, _ = uuid.ParseHex(tempData[2])

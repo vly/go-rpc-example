@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/stretchr/testify/assert"
 	"testing"
+	"time"
 )
 
 // init server if hasn't been already
@@ -85,32 +86,59 @@ func TestSequentialPathing(t *testing.T) {
 	tests := []int{1, 96, 1}
 
 	// initialise test trams, ready to start moving
-	workingClients := make([]Client, len(tests))
-	for i, b := range workingClients {
-		b.Init("localhost:1234")
-		err := b.RegisterRoute(tests[i])
-		assert.Nil(t, err, "Error registering route")
+	// workingClients := make([]Client, len(tests))
+	// for i, b := range workingClients {
+	// 	b.Init("localhost:1234")
+	// 	err := b.RegisterRoute(tests[i])
+	// 	assert.Nil(t, err, "Error registering route")
+	// }
+	// testChannels := make([]chan int, len(tests))
+	// for i, b := range testChannels {
+	// 	go func(route int) {
+	// 		worker := new(Client)
+	// 		worker.Init("localhost:1234")
+	// 		err := worker.RegisterRoute(route)
+	// 		if err != nil {
+	// 			fmt.Println("oh oh")
+	// 		}
+	// 		worker.AsyncAdvance()
+	// 		b <- 1
+	// 	}(tests[i])
+	// }
+	// fmt.Println(len(testChannels))
+
+	// }
+	var chans [3]chan string
+	for i := range chans {
+		chans[i] = make(chan string)
 	}
-	testChannels := make([]chan int, len(tests))
-	for i, b := range workingClients {
-		go b.AsyncAdvance(testChannels[i])
+	for i, _ := range chans {
+		go func(route int) {
+			worker := new(Client)
+			worker.Init("localhost:1234")
+			err := worker.RegisterRoute(route)
+			if err != nil {
+				fmt.Println("oh oh")
+			}
+			for j := 0; j < 5; j++ {
+				worker.AsyncAdvance()
+				chans[i] <- fmt.Sprintf("%s: %d", worker.TramObj.TramID.String(), worker.TramObj.CurrentStop)
+			}
+
+		}(tests[i])
 	}
 
-	select {
-	case tram1 := <-testChannels[0]:
-		fmt.Println("Tram 1 received")
-		if tram1 != 1 {
-			go workingClients[0].AsyncAdvance(testChannels[0])
-		}
-	case tram2 := <-testChannels[1]:
-		fmt.Println("Tram 2 received")
-		if tram2 != 1 {
-			go workingClients[1].AsyncAdvance(testChannels[1])
-		}
-	case tram3 := <-testChannels[2]:
-		fmt.Println("Tram 3 received")
-		if tram3 != 2 {
-			go workingClients[2].AsyncAdvance(testChannels[2])
+	for {
+		select {
+		case <-chans[0]:
+			fmt.Printf("Tram 1 received")
+		case <-chans[1]:
+			fmt.Println("Tram 2 received")
+		case response := <-chans[2]:
+			fmt.Printf("Tram 3 received: %s\n", response)
+		case <-time.After(5 * 1e9):
+			// 30 sec timeout
+			return
 		}
 	}
 }
