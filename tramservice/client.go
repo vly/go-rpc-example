@@ -154,7 +154,6 @@ func (c *Client) GetNextStop() (nextStop int, err error) {
 		fmt.Println("GetNextStop: Error getting next stop, current tram position is not valid.")
 		return -1, chk
 	}
-	//fmt.Printf("Response: %s\n", response.CsvData)
 	nextStop, err = strconv.Atoi(response.CsvData)
 	c.checkError(err)
 	return

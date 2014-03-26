@@ -88,7 +88,6 @@ func TestSequentialPathing(t *testing.T) {
 	// initialise goroutes for client calls
 	ch := make(chan *Tram)
 	for i, _ := range tests {
-		//chans[i] = make(chan *Tram)
 
 		go func(route int) {
 			worker := new(Client)

@@ -83,7 +83,6 @@ func (message *RPCMessage) Marshall() *Message {
 	output := new(Message)
 	output.data = []byte(fmt.Sprintf("%s\n", strings.Join(out, "|")))
 	output.length = uint32(len(output.data))
-	//fmt.Printf("marshalling: %s with a size of %d\n", output.data, output.length)
 	return output
 }
 
@@ -108,7 +107,6 @@ func (message *Message) Unmarshall() *RPCMessage {
 	output.CsvData = tempData[5]
 	status, _ := strconv.Atoi(tempData[6])
 	output.Status = uint32(status)
-	//fmt.Println(output.RPCId.String())
 	return output
 }
 
