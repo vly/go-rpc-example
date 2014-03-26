@@ -121,6 +121,7 @@ func (c *Client) RegisterRoute(routeID int) error {
 func (c *Client) AdvanceTram() error {
 	nextStop, err := c.GetNextStop()
 	c.checkError(err)
+	Logger(fmt.Sprintf("tram %s received next stop %d", c.TramObj.TramID.String(), nextStop))
 	// sleep before executing
 	time.Sleep(time.Duration(genRand()) * time.Second)
 	err = c.UpdateTramLocation(nextStop)

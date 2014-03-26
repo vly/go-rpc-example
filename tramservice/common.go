@@ -3,7 +3,9 @@ package tramservice
 import (
 	"fmt"
 	"github.com/nu7hatch/gouuid"
+	"log"
 	"math/rand"
+	"os"
 	"reflect"
 	"strconv"
 	"strings"
@@ -115,5 +117,17 @@ func (message *Message) Unmarshall() *RPCMessage {
 func genRand() (out int) {
 	rand.Seed(time.Now().UTC().UnixNano())
 	out = 10 + rand.Intn(10)
+	return
+}
+
+// debug logging facility for assignment demonstration
+func Logger(message string) (err error) {
+	file, err := os.OpenFile("tramservice.log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	if err != nil {
+		return
+	}
+	defer file.Close()
+	log.SetOutput(file)
+	log.Println(message)
 	return
 }

@@ -78,6 +78,7 @@ func TestUpdateTramLocation(t *testing.T) {
 func TestSequentialPathing(t *testing.T) {
 	// init server
 	ConnectServer()
+	Logger("server initiated")
 
 	// clear current clients from previous tests
 	server.clearClients()
@@ -92,10 +93,13 @@ func TestSequentialPathing(t *testing.T) {
 		go func(route int) {
 			worker := new(Client)
 			worker.Init("localhost:1234")
+			Logger(fmt.Sprintf("tram %s initiated", worker.TramObj.TramID.String()))
 			err := worker.RegisterRoute(route)
 			if err != nil {
 				fmt.Println("oh oh")
 			}
+			Logger(fmt.Sprintf("tram %s registered to route %d", worker.TramObj.TramID.String(), route))
+			// run tram through 10 stops
 			for j := 0; j < 10; j++ {
 				worker.AsyncAdvance()
 				ch <- worker.TramObj
@@ -108,8 +112,10 @@ func TestSequentialPathing(t *testing.T) {
 		select {
 		case response := <-ch:
 			fmt.Printf("Tram %s is at tram stop: %d\n", response.TramID.String(), response.CurrentStop)
+			Logger(fmt.Sprintf("tram %s arrived at stop %d", response.TramID.String(), response.CurrentStop))
 		case <-time.After(30 * 1e9):
 			// 30 sec timeout
+			Logger(fmt.Sprintf("loop timeout, no events for 30 seconds"))
 			return
 		}
 	}
